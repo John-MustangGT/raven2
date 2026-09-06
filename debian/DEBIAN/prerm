@@ -5,13 +5,15 @@ set -e
 
 case "$1" in
     remove|upgrade|deconfigure)
-        # Stop the service
+        # Stop the service so dpkg can replace the binary
         if systemctl is-active --quiet raven.service; then
             systemctl stop raven.service
         fi
-        
-        # Disable the service
-        if systemctl is-enabled --quiet raven.service; then
+
+        # Only deregister the service on an actual removal - postinst
+        # re-enables it on every install/upgrade anyway, but an upgrade
+        # or deconfigure shouldn't leave it disabled even transiently.
+        if [ "$1" = "remove" ] && systemctl is-enabled --quiet raven.service; then
             systemctl disable raven.service
         fi
         ;;
