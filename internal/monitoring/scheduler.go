@@ -451,33 +451,32 @@ func (s *Scheduler) updateStateTracker(key string, newExitCode int) (int, StateI
         return newExitCode, *stateInfo
     }
 
-    // Soft fail logic
-    if newExitCode == stateInfo.PendingState {
-        // Same state as before, increment counter
-        stateInfo.ConsecutiveCount++
-    } else {
-        // Different state, reset counter
+    // Soft fail logic: count consecutive polls that disagree with the
+    // currently-*reported* state (CurrentState), not consecutive polls
+    // returning the exact same code. A service bouncing between WARNING
+    // and CRITICAL is still continuously failing and must not reset the
+    // counter just because the specific severity changed between polls -
+    // comparing against the last poll's value (PendingState) instead of
+    // CurrentState let that streak restart from 1 on every such change,
+    // so a check that never repeats the same non-OK code twice in a row
+    // could stay pending forever.
+    if newExitCode == stateInfo.CurrentState {
+        // Agrees with what's already reported: nothing pending.
         stateInfo.PendingState = newExitCode
         stateInfo.ConsecutiveCount = 1
+    } else if stateInfo.PendingState == stateInfo.CurrentState {
+        // First poll to disagree since we were last settled.
+        stateInfo.PendingState = newExitCode
+        stateInfo.ConsecutiveCount = 1
+    } else {
+        // Still disagreeing, whatever the exact value - keep counting.
+        stateInfo.PendingState = newExitCode
+        stateInfo.ConsecutiveCount++
     }
 
-    // Check if we should change the reported state
-    shouldChangeState := false
-    
-    if newExitCode == 0 {
-        // Recovery to OK state - immediate transition
-        shouldChangeState = true
-    } else if stateInfo.CurrentState == 0 && newExitCode != 0 {
-        // Transitioning from OK to non-OK - apply soft fail logic
-        shouldChangeState = stateInfo.ConsecutiveCount >= stateInfo.Threshold
-    } else if stateInfo.CurrentState != 0 && newExitCode != 0 {
-        // Already in non-OK state, transitioning to different non-OK state
-        // Apply soft fail logic for state changes between non-OK states
-        shouldChangeState = stateInfo.ConsecutiveCount >= stateInfo.Threshold
-    } else {
-        // Other transitions (shouldn't happen with the above logic, but safety)
-        shouldChangeState = stateInfo.ConsecutiveCount >= stateInfo.Threshold
-    }
+    // OK recoveries apply immediately; anything else needs Threshold
+    // consecutive disagreeing polls before we report it.
+    shouldChangeState := newExitCode == 0 || stateInfo.ConsecutiveCount >= stateInfo.Threshold
 
     if shouldChangeState {
         if stateInfo.CurrentState != newExitCode {
