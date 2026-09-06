@@ -223,7 +223,8 @@ func (s *Scheduler) processSchedule() {
     now := time.Now()
     scheduled := 0
 
-    for _, check := range checks {
+    for i := range checks {
+        check := &checks[i]
         if !check.Enabled {
             continue
         }
@@ -235,21 +236,21 @@ func (s *Scheduler) processSchedule() {
             }
 
             key := fmt.Sprintf("%s:%s", hostID, check.ID)
-            
+
             s.stateTracker.mu.RLock()
             stateInfo, exists := s.stateTracker.states[key]
             s.stateTracker.mu.RUnlock()
-            
+
             if !exists {
                 // Initialize state info for this host/check combination
-                threshold := s.getThreshold(&check)
+                threshold := s.getThreshold(check)
                 stateInfo = &StateInfo{
                     CurrentState:     3, // Unknown
                     PendingState:     3,
                     ConsecutiveCount: 0,
                     LastStateChange:  now,
                     LastCheckTime:    now,
-                    SoftFailEnabled:  s.isSoftFailEnabled(&check),
+                    SoftFailEnabled:  s.isSoftFailEnabled(check),
                     Threshold:        threshold,
                 }
                 
@@ -302,7 +303,7 @@ func (s *Scheduler) processSchedule() {
                     HostID:  hostID,
                     CheckID: check.ID,
                     Host:    host,
-                    Check:   &check,
+                    Check:   check,
                     NextRun: now,
                     State:   stateInfo.CurrentState,
                 }
