@@ -171,7 +171,7 @@ checks:
 - **dns**: DNS record lookup (A/AAAA/CNAME/MX/TXT/NS), optionally against a specific server, with an optional expected-value match
 - **http**: HTTP/HTTPS check (HEAD by default) with TLS certificate validation and expected-status checking
 - **ssh**: TCP connect plus SSH identification banner validation
-- **nagios** / **icinga**: Runs an external Nagios/Icinga-compatible plugin binary (`options.command` + `options.args`, with `$HOSTADDRESS$`/`$HOSTNAME$` macros)
+- **nagios** / **icinga**: Runs an external Nagios/Icinga-compatible plugin binary (`options.program` + `options.options`, auto-passing `-H <address>` unless `options.addhost` is set to false)
 
 ## Performance
 

@@ -162,5 +162,5 @@ checks:
     timeout: "10s"
     enabled: true
     options:
-      command: "/usr/lib/nagios/plugins/check_load"
-      args: ["-H", "$HOSTADDRESS$", "-w", "5,4,3", "-c", "10,8,6"]
+      program: "/usr/lib/nagios/plugins/check_load"
+      options: ["-w", "5,4,3", "-c", "10,8,6"]
