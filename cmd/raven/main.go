@@ -101,11 +101,20 @@ func setupLogging(cfg config.LoggingConfig) {
     }
     logrus.SetLevel(level)
 
+    // systemd sets JOURNAL_STREAM when a unit's stdout/stderr go straight
+    // to the journal (systemd.exec(5)), and journald stamps every line it
+    // receives itself, so our own timestamp would just double up with the
+    // one journalctl already shows.
+    underJournal := os.Getenv("JOURNAL_STREAM") != ""
+
     if cfg.Format == "json" {
-        logrus.SetFormatter(&logrus.JSONFormatter{})
+        logrus.SetFormatter(&logrus.JSONFormatter{
+            DisableTimestamp: underJournal,
+        })
     } else {
         logrus.SetFormatter(&logrus.TextFormatter{
-            FullTimestamp: true,
+            FullTimestamp:    true,
+            DisableTimestamp: underJournal,
         })
     }
 }

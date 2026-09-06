@@ -38,7 +38,7 @@ func NewServer(cfg *config.Config, store database.Store, engine *monitoring.Engi
     }
 
     router := gin.New()
-    router.Use(gin.Logger())
+    router.Use(gin.LoggerWithFormatter(accessLogFormatter(underSystemdJournal())))
     router.Use(gin.Recovery())
     router.Use(corsMiddleware())
 
@@ -53,6 +53,46 @@ func NewServer(cfg *config.Config, store database.Store, engine *monitoring.Engi
 
     server.setupRoutes()
     return server
+}
+
+// underSystemdJournal reports whether our stdout/stderr are being captured
+// directly by the systemd journal. systemd sets JOURNAL_STREAM on a unit's
+// environment in exactly that case (see systemd.exec(5)), and journald
+// already stamps every line it receives, so our own timestamp would just
+// be a redundant, noisier duplicate of the one journalctl already shows.
+func underSystemdJournal() bool {
+    return os.Getenv("JOURNAL_STREAM") != ""
+}
+
+// accessLogFormatter is gin's default access log line, minus the leading
+// timestamp when journald is already going to add one.
+func accessLogFormatter(underJournal bool) gin.LogFormatter {
+    return func(p gin.LogFormatterParams) string {
+        if p.Latency > time.Minute {
+            p.Latency = p.Latency.Truncate(time.Second)
+        }
+
+        var prefix string
+        if !underJournal {
+            prefix = p.TimeStamp.Format("2006/01/02 - 15:04:05") + " | "
+        }
+
+        var statusColor, methodColor, resetColor string
+        if p.IsOutputColor() {
+            statusColor = p.StatusCodeColor()
+            methodColor = p.MethodColor()
+            resetColor = p.ResetColor()
+        }
+
+        return fmt.Sprintf("[GIN] %s%s %3d %s| %13v | %15s | %s%-7s%s %s\n",
+            prefix,
+            statusColor, p.StatusCode, resetColor,
+            p.Latency,
+            p.ClientIP,
+            methodColor, p.Method, resetColor,
+            p.Path,
+        )
+    }
 }
 
 func (s *Server) Start(ctx context.Context) error {
