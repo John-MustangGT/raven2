@@ -45,9 +45,13 @@ window.CheckModal = {
                             <i :class="getCheckTypeIcon(form.type)" style="color: var(--primary-color);"></i>
                             <select v-model="form.type" class="form-input" required style="flex: 1;">
                                 <option value="ping">Ping - Network connectivity test</option>
-                                <option value="nagios">Nagios Plugin - Custom monitoring script</option>
+                                <option value="tcp">TCP - Port connectivity test</option>
+                                <option value="dns">DNS - Record lookup</option>
                                 <option value="http">HTTP - Web service check</option>
                                 <option value="https">HTTPS - Secure web service check</option>
+                                <option value="ssh">SSH - Service and banner check</option>
+                                <option value="nagios">Nagios Plugin - External monitoring script</option>
+                                <option value="icinga">Icinga Plugin - External monitoring script</option>
                             </select>
                         </div>
                     </div>

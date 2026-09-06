@@ -559,7 +559,8 @@ checks:
     timeout: "5s"
     enabled: true
     options:
-      url: "http://{{.Host.IPv4}}/api/health"
+      scheme: "http"
+      path: "/api/health"
       method: "GET"
       expected_status: 200
 ```

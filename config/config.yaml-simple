@@ -77,13 +77,9 @@ hosts:
 
 # Example checks configuration
 checks:
-  # NOTE: only "ping" and "nagios" plugins are currently registered
-  # (see internal/monitoring/engine.go loadPlugins); an "http" type would
-  # fail every run with "unknown check type: http". Using "ping" here so
-  # this example config actually runs.
   - id: "http-check"
-    name: "Web Server Reachability"
-    type: "ping"
+    name: "HTTP Health Check"
+    type: "http"
     hosts: ["web-01"]
     interval:
       ok: "60s"
@@ -92,7 +88,11 @@ checks:
     threshold: 3
     timeout: "10s"
     enabled: true
-
+    options:
+      scheme: "http"
+      path: "/health"
+      method: "HEAD"
+      expected_status: 200
 
   - id: "ping-check"
     name: "Ping Connectivity"
@@ -107,3 +107,60 @@ checks:
     enabled: true
     options:
       count: 3
+
+  - id: "db-port-check"
+    name: "Database Port Reachable"
+    type: "tcp"
+    hosts: ["db-01"]
+    interval:
+      ok: "60s"
+      warning: "30s"
+      critical: "15s"
+    threshold: 3
+    timeout: "5s"
+    enabled: true
+    options:
+      port: 5432
+
+  - id: "web-dns-check"
+    name: "Web Server DNS Resolution"
+    type: "dns"
+    hosts: ["web-01"]
+    interval:
+      ok: "300s"
+      warning: "120s"
+      critical: "60s"
+    threshold: 2
+    timeout: "5s"
+    enabled: true
+    options:
+      record_type: "A"
+
+  - id: "web-ssh-check"
+    name: "Web Server SSH Reachable"
+    type: "ssh"
+    hosts: ["web-01"]
+    interval:
+      ok: "300s"
+      warning: "120s"
+      critical: "60s"
+    threshold: 2
+    timeout: "5s"
+    enabled: true
+    options:
+      port: 22
+
+  - id: "web-nagios-check"
+    name: "Web Server Load (external plugin)"
+    type: "nagios"
+    hosts: ["web-01"]
+    interval:
+      ok: "60s"
+      warning: "30s"
+      critical: "15s"
+    threshold: 3
+    timeout: "10s"
+    enabled: true
+    options:
+      command: "/usr/lib/nagios/plugins/check_load"
+      args: ["-H", "$HOSTADDRESS$", "-w", "5,4,3", "-c", "10,8,6"]

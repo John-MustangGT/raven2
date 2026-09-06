@@ -16,10 +16,10 @@ checks:
     timeout: "5s"
     enabled: true
     options:
-      url: "http://{{.Host.IPv4}}/api/v1/status"
+      scheme: "http"
+      path: "/api/v1/status"
       method: "GET"
       expected_status: 200
-      max_response_time: "2s"
 
   - id: "disk-usage-check"
     name: "Disk Usage Check"

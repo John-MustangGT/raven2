@@ -36,7 +36,7 @@ Enterprise monitoring solutions are overkill for home use. They include:
 - Real-time dashboard with host status
 - Prometheus metrics integration
 - Historical data tracking
-- Multiple check types (ping, HTTP, SSH, SNMP, etc.)
+- Multiple check types (ping, TCP, DNS, HTTP/HTTPS, SSH, plus Nagios/Icinga external plugins)
 
 ### 🔧 **Easy Deployment**
 - Debian packages with systemd integration
@@ -167,10 +167,11 @@ checks:
 ### Check Types
 
 - **ping**: ICMP connectivity tests
-- **nagios**: Compatible with Nagios plugins
-- **http**: Web service monitoring with SSL certificate checking
-- **ssh**: SSH service availability
-- **snmp**: SNMP-based monitoring
+- **tcp**: Raw TCP port connect test
+- **dns**: DNS record lookup (A/AAAA/CNAME/MX/TXT/NS), optionally against a specific server, with an optional expected-value match
+- **http**: HTTP/HTTPS check (HEAD by default) with TLS certificate validation and expected-status checking
+- **ssh**: TCP connect plus SSH identification banner validation
+- **nagios** / **icinga**: Runs an external Nagios/Icinga-compatible plugin binary (`options.command` + `options.args`, with `$HOSTADDRESS$`/`$HOSTNAME$` macros)
 
 ## Performance
 

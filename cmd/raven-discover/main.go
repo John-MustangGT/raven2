@@ -103,7 +103,6 @@ type Config struct {
 type ServerConfig struct {
 	Port         string `yaml:"port"`
 	Workers      int    `yaml:"workers"`
-	PluginDir    string `yaml:"plugin_dir"`
 	ReadTimeout  string `yaml:"read_timeout"`
 	WriteTimeout string `yaml:"write_timeout"`
 }
@@ -385,7 +384,6 @@ func generateConfig(nmapRun *NmapRun, group string, dhcpLow, dhcpHigh int, enabl
 		Server: ServerConfig{
 			Port:         ":8000",
 			Workers:      3,
-			PluginDir:    "./plugins",
 			ReadTimeout:  "30s",
 			WriteTimeout: "30s",
 		},

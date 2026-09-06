@@ -40,7 +40,8 @@ checks:
     timeout: "10s"
     enabled: true
     options:
-      url: "http://{{.Host.IPv4}}/health"
+      scheme: "http"
+      path: "/health"
       method: "GET"
       expected_status: 200
 

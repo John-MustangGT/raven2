@@ -32,7 +32,6 @@ type IncludeConfig struct {
 type ServerConfig struct {
     Port         string        `yaml:"port"`
     Workers      int           `yaml:"workers"`
-    PluginDir    string        `yaml:"plugin_dir"`
     ReadTimeout  time.Duration `yaml:"read_timeout"`
     WriteTimeout time.Duration `yaml:"write_timeout"`
 }
@@ -320,9 +319,6 @@ func mergeServerConfig(main *ServerConfig, partial *ServerConfig) {
     }
     if partial.Workers != 0 {
         main.Workers = partial.Workers
-    }
-    if partial.PluginDir != "" {
-        main.PluginDir = partial.PluginDir
     }
     if partial.ReadTimeout != 0 {
         main.ReadTimeout = partial.ReadTimeout

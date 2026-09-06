@@ -57,6 +57,8 @@ checks:
     timeout: "15s"
     enabled: true
     options:
-      url: "http://{{.Host.IPv4}}:8080/health"
+      scheme: "http"
+      port: 8080
+      path: "/health"
       method: "GET"
       expected_status: 200

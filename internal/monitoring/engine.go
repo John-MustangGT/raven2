@@ -25,8 +25,7 @@ type Engine struct {
 
 type Plugin interface {
     Name() string
-    Init(options map[string]interface{}) error
-    Execute(ctx context.Context, host *database.Host) (*CheckResult, error)
+    Execute(ctx context.Context, host *database.Host, check *database.Check) (*CheckResult, error)
 }
 
 type CheckResult struct {
@@ -196,8 +195,22 @@ func (e *Engine) syncConfig() error {
 func (e *Engine) loadPlugins() error {
     // Register built-in plugins
     e.plugins["ping"] = &PingPlugin{}
-    e.plugins["nagios"] = &NagiosPlugin{}
-    
+    e.plugins["tcp"] = &TCPPlugin{}
+    e.plugins["dns"] = &DNSPlugin{}
+    e.plugins["ssh"] = &SSHPlugin{}
+
+    // "https" is the same plugin as "http"; HTTPPlugin defaults its scheme
+    // from the check type when options.scheme/options.tls aren't set.
+    http := &HTTPPlugin{}
+    e.plugins["http"] = http
+    e.plugins["https"] = http
+
+    // Icinga speaks the same external-plugin API as Nagios (exit code
+    // 0-3 + stdout text/perfdata), so one implementation serves both names.
+    nagios := &NagiosPlugin{}
+    e.plugins["nagios"] = nagios
+    e.plugins["icinga"] = nagios
+
     logrus.WithField("plugins", len(e.plugins)).Info("Loaded plugins")
     return nil
 }

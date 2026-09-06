@@ -239,10 +239,12 @@ window.RavenUtils = {
         const typeMap = {
             'ping': 'Network Ping',
             'http': 'HTTP Check',
-            'https': 'HTTPS Check', 
+            'https': 'HTTPS Check',
             'nagios': 'Nagios Plugin',
+            'icinga': 'Icinga Plugin',
             'tcp': 'TCP Connection',
-            'dns': 'DNS Lookup'
+            'dns': 'DNS Lookup',
+            'ssh': 'SSH Check'
         };
         
         return typeMap[checkType?.toLowerCase()] || checkType || 'Unknown';
@@ -364,8 +366,10 @@ window.RavenUtils = {
             case 'http': return 'fab fa-html5';
             case 'https': return 'fas fa-lock';
             case 'nagios': return 'fas fa-cog';
+            case 'icinga': return 'fas fa-cogs';
             case 'tcp': return 'fas fa-network-wired';
             case 'dns': return 'fas fa-globe';
+            case 'ssh': return 'fas fa-terminal';
             default: return 'fas fa-question-circle';
         }
     },

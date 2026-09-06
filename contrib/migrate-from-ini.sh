@@ -82,7 +82,6 @@ generate_base_config() {
 server:
   port: ":8000"
   workers: 3
-  plugin_dir: "./plugins"
   read_timeout: "30s"
   write_timeout: "30s"
 

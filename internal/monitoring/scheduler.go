@@ -528,7 +528,7 @@ func (w *Worker) executeJob(job *Job) {
     ctx, cancel := context.WithTimeout(context.Background(), job.Check.Timeout)
     defer cancel()
 
-    result, err := plugin.Execute(ctx, job.Host)
+    result, err := plugin.Execute(ctx, job.Host, job.Check)
     if result != nil {
         result.Duration = time.Since(start)
     }
