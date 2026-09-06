@@ -1,0 +1,70 @@
+# /etc/raven/config.yaml
+#
+# Default configuration installed by the raven package. This file is
+# registered as a conffile, so a package upgrade will not silently
+# overwrite changes you make here (dpkg preserves local edits, or asks
+# what to do if both the package default and your copy changed).
+#
+# Quick start:
+#   1. sudo raven-discover -network 192.168.1.0/24 -output /tmp/discovered.yaml
+#   2. Review /tmp/discovered.yaml, then merge its hosts/checks into this file
+#   3. sudo systemctl start raven
+
+server:
+  port: ":8000"
+  workers: 3
+  read_timeout: "30s"
+  write_timeout: "30s"
+
+web:
+  assets_dir: "/usr/lib/raven/web"
+  # No web/static/ directory ships in this package; everything the UI
+  # needs is served through the explicit files: list below instead.
+  serve_static: false
+  root: "index.html"
+  files:
+    - "index.html"
+    - "styles.css"
+    - "favicon.ico"
+    - "favicon.svg"
+    - "js/utils.js"
+    - "js/api.js"
+    - "js/app.js"
+    - "js/components/sidebar.js"
+    - "js/components/header.js"
+    - "js/components/dashboard-view.js"
+    - "js/components/hosts-view.js"
+    - "js/components/host-detail-view.js"
+    - "js/components/checks-view.js"
+    - "js/components/alerts-view.js"
+    - "js/components/alert-detail-view.js"
+    - "js/components/about-view.js"
+    - "js/components/settings-view.js"
+    - "js/components/host-modal.js"
+    - "js/components/check-modal.js"
+    - "js/components/notification.js"
+
+database:
+  type: "boltdb"
+  path: "/var/lib/raven/data/raven.db"
+  backup_interval: "24h"
+  cleanup_interval: "1h"
+  history_retention: "720h"  # 30 days
+
+prometheus:
+  enabled: true
+  metrics_path: "/metrics"
+
+monitoring:
+  default_interval: "60s"
+  timeout: "30s"
+  default_threshold: 3
+  soft_fail_enabled: true
+
+logging:
+  level: "info"
+  format: "text"
+
+hosts: []
+
+checks: []

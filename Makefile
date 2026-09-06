@@ -202,9 +202,11 @@ deb: build discover
 	@cp debian/DEBIAN/postinst $(DEB_DIR)/DEBIAN/
 	@cp debian/DEBIAN/prerm $(DEB_DIR)/DEBIAN/
 	@cp debian/DEBIAN/postrm $(DEB_DIR)/DEBIAN/
+	@cp debian/DEBIAN/conffiles $(DEB_DIR)/DEBIAN/
 	@chmod 755 $(DEB_DIR)/DEBIAN/postinst
 	@chmod 755 $(DEB_DIR)/DEBIAN/prerm
 	@chmod 755 $(DEB_DIR)/DEBIAN/postrm
+	@chmod 644 $(DEB_DIR)/DEBIAN/conffiles
 
 	# Copy systemd service
 	@cp config/raven.service $(DEB_DIR)/etc/systemd/system/

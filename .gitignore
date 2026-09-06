@@ -29,5 +29,5 @@ tmp/
 bin/
 srv/
 data/
-config.yaml
+/config.yaml
 build/
