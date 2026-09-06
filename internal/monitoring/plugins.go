@@ -55,8 +55,11 @@ func (p *PingPlugin) Execute(ctx context.Context, host *database.Host) (*CheckRe
     lossRegex := regexp.MustCompile(`(\d+)% packet loss`)
     lossMatches := lossRegex.FindStringSubmatch(outputStr)
     
-    // Extract average RTT
-    rttRegex := regexp.MustCompile(`avg = ([\d.]+)`)
+    // Extract average RTT. Real ping output reads
+    // "rtt min/avg/max/mdev = 0.026/0.031/0.044/0.007 ms" (Linux) or
+    // "round-trip min/avg/max/stddev = ..." (macOS); avg is the second of
+    // the four slash-separated numbers after "=".
+    rttRegex := regexp.MustCompile(`=\s*[\d.]+/([\d.]+)/`)
     rttMatches := rttRegex.FindStringSubmatch(outputStr)
 
     var loss int

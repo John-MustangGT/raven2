@@ -77,9 +77,13 @@ hosts:
 
 # Example checks configuration
 checks:
+  # NOTE: only "ping" and "nagios" plugins are currently registered
+  # (see internal/monitoring/engine.go loadPlugins); an "http" type would
+  # fail every run with "unknown check type: http". Using "ping" here so
+  # this example config actually runs.
   - id: "http-check"
-    name: "HTTP Health Check"
-    type: "http"
+    name: "Web Server Reachability"
+    type: "ping"
     hosts: ["web-01"]
     interval:
       ok: "60s"
@@ -88,11 +92,8 @@ checks:
     threshold: 3
     timeout: "10s"
     enabled: true
-    options:
-      url: "http://{{.Host.IPv4}}/health"
-      method: "GET"
-      expected_status: 200
-      
+
+
   - id: "ping-check"
     name: "Ping Connectivity"
     type: "ping"

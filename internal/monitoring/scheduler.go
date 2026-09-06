@@ -285,9 +285,15 @@ func (s *Scheduler) processSchedule() {
             }
 
             nextRun := stateInfo.LastCheckTime.Add(interval)
-            
-            // Add some jitter to prevent thundering herd
-            jitter := time.Duration(rand.Intn(int(interval.Seconds()*0.1))) * time.Second
+
+            // Add some jitter to prevent thundering herd. rand.Intn panics on
+            // n<=0, which int(interval.Seconds()*0.1) would be for any
+            // interval under 10s, so floor it at 1.
+            jitterMax := int(interval.Seconds() * 0.1)
+            if jitterMax < 1 {
+                jitterMax = 1
+            }
+            jitter := time.Duration(rand.Intn(jitterMax)) * time.Second
             nextRun = nextRun.Add(jitter)
 
             if nextRun.Before(now) {
@@ -343,13 +349,11 @@ func (s *Scheduler) handleResult(result *JobResult) {
         }
     }
 
-    // Update state tracker with new result
-    reportedState := s.updateStateTracker(key, result.Result.ExitCode)
-    
-    // Get state info for logging
-    s.stateTracker.mu.RLock()
-    stateInfo := s.stateTracker.states[key]
-    s.stateTracker.mu.RUnlock()
+    // Update state tracker with new result. This returns a value snapshot
+    // (not the shared pointer) taken under the tracker's lock, so we don't
+    // race a concurrent updateStateTracker call for the same key reading
+    // these fields below.
+    reportedState, stateInfo := s.updateStateTracker(key, result.Result.ExitCode)
 
     // Store result with the reported state (may be different from actual result due to soft fail)
     status := &database.Status{
@@ -365,9 +369,9 @@ func (s *Scheduler) handleResult(result *JobResult) {
 
     // If we're in soft fail mode and states don't match, add soft fail info to output
     if stateInfo.SoftFailEnabled && result.Result.ExitCode != reportedState {
-        status.Output = fmt.Sprintf("SOFT FAIL (%d/%d) - %s", 
+        status.Output = fmt.Sprintf("SOFT FAIL (%d/%d) - %s",
             stateInfo.ConsecutiveCount, stateInfo.Threshold, result.Result.Output)
-        
+
         status.LongOutput = fmt.Sprintf("Soft fail protection active. Consecutive non-OK results: %d/%d required.\nOriginal output: %s\nOriginal long output: %s",
             stateInfo.ConsecutiveCount, stateInfo.Threshold, result.Result.Output, result.Result.LongOutput)
     }
@@ -409,10 +413,15 @@ func (s *Scheduler) handleResult(result *JobResult) {
     logrus.WithFields(logFields).Debug("Check completed")
 }
 
-func (s *Scheduler) updateStateTracker(key string, newExitCode int) int {
+// updateStateTracker applies newExitCode to the tracked state for key and
+// returns the reported state along with a value snapshot of the StateInfo,
+// both taken while still holding the tracker lock. Callers must use the
+// returned snapshot rather than looking the key back up in s.stateTracker,
+// since that pointer is mutated concurrently by other calls to this method.
+func (s *Scheduler) updateStateTracker(key string, newExitCode int) (int, StateInfo) {
     s.stateTracker.mu.Lock()
     defer s.stateTracker.mu.Unlock()
-    
+
     stateInfo, exists := s.stateTracker.states[key]
     if !exists {
         // This shouldn't happen, but handle it gracefully
@@ -426,11 +435,11 @@ func (s *Scheduler) updateStateTracker(key string, newExitCode int) int {
             Threshold:        1,
         }
         s.stateTracker.states[key] = stateInfo
-        return newExitCode
+        return newExitCode, *stateInfo
     }
 
     stateInfo.LastCheckTime = time.Now()
-    
+
     // If soft fail is not enabled, just update and return the new state
     if !stateInfo.SoftFailEnabled {
         if stateInfo.CurrentState != newExitCode {
@@ -439,7 +448,7 @@ func (s *Scheduler) updateStateTracker(key string, newExitCode int) int {
         stateInfo.CurrentState = newExitCode
         stateInfo.PendingState = newExitCode
         stateInfo.ConsecutiveCount = 1
-        return newExitCode
+        return newExitCode, *stateInfo
     }
 
     // Soft fail logic
@@ -485,7 +494,7 @@ func (s *Scheduler) updateStateTracker(key string, newExitCode int) int {
         stateInfo.ConsecutiveCount = 1 // Reset counter after state change
     }
 
-    return stateInfo.CurrentState
+    return stateInfo.CurrentState, *stateInfo
 }
 
 func (w *Worker) start() {

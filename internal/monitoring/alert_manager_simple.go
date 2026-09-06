@@ -53,15 +53,21 @@ func (am *SimpleAlertManager) PurgeStaleAlerts(ctx context.Context) error {
                 "host_id":  status.HostID,
                 "check_id": status.CheckID,
                 "status":   status.ExitCode,
-            }).Debug("Would purge stale alert (extend your BoltStore to implement deletion)")
+            }).Debug("Purging stale alert")
 
-            am.store.DeleteStatus(ctx, status.HostID, status.CheckID)
+            if err := am.store.DeleteStatus(ctx, status.HostID, status.CheckID); err != nil {
+                logrus.WithError(err).WithFields(logrus.Fields{
+                    "host_id":  status.HostID,
+                    "check_id": status.CheckID,
+                }).Error("Failed to purge stale alert")
+                continue
+            }
             purgedCount++
         }
     }
     
     if purgedCount > 0 {
-        logrus.WithField("would_purge_count", purgedCount).Info("Alert purge completed")
+        logrus.WithField("purged_count", purgedCount).Info("Alert purge completed")
     } else {
         logrus.Debug("No stale alerts found to purge")
     }

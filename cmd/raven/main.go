@@ -78,11 +78,19 @@ func main() {
     sig := <-sigChan
     logrus.WithField("signal", sig).Info("Received shutdown signal")
 
-    // Graceful shutdown
+    // Graceful shutdown: stop background loops first, then let the engine
+    // and web server drain synchronously rather than exiting after a fixed
+    // sleep and hoping they finished.
     cancel()
-    
-    // Give services time to shutdown
-    time.Sleep(2 * time.Second)
+
+    engine.Stop()
+
+    shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer shutdownCancel()
+    if err := webServer.Stop(shutdownCtx); err != nil {
+        logrus.WithError(err).Error("Error during web server shutdown")
+    }
+
     logrus.Info("Shutdown complete")
 }
 

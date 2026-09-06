@@ -536,7 +536,8 @@ func validate(cfg *Config) error {
     }
     
     // Validate check configurations
-    for _, check := range cfg.Checks {
+    for i := range cfg.Checks {
+        check := &cfg.Checks[i]
         if check.Threshold < 0 {
             return fmt.Errorf("check '%s' has invalid threshold: %d (must be >= 0)", check.ID, check.Threshold)
         }

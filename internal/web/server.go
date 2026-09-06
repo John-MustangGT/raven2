@@ -5,6 +5,7 @@ import (
     "context"
     "net/http"
     "path/filepath"
+    "sync"
     "time"
     "os"
     "strings"
@@ -26,6 +27,7 @@ type Server struct {
     engine    *monitoring.Engine
     metrics   *metrics.Collector
     router    *gin.Engine
+    wsMu      sync.Mutex
     wsClients map[*WSClient]bool
     server    *http.Server
 }
@@ -623,9 +625,13 @@ func (s *Server) healthCheck(c *gin.Context) {
         }
     }
     
+    s.wsMu.Lock()
+    activeClients := len(s.wsClients)
+    s.wsMu.Unlock()
+
     services["websocket"] = gin.H{
-        "status":         "healthy", 
-        "active_clients": len(s.wsClients),
+        "status":         "healthy",
+        "active_clients": activeClients,
     }
     
     services["monitoring"] = gin.H{"status": "healthy"}

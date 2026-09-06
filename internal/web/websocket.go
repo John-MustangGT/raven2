@@ -40,7 +40,9 @@ func (s *Server) handleWebSocket(c *gin.Context) {
         server: s,
     }
 
+    s.wsMu.Lock()
     s.wsClients[client] = true
+    s.wsMu.Unlock()
 
     go client.writePump()
     go client.readPump()
@@ -51,7 +53,9 @@ func (c *WSClient) writePump() {
     defer func() {
         ticker.Stop()
         c.conn.Close()
+        c.server.wsMu.Lock()
         delete(c.server.wsClients, c)
+        c.server.wsMu.Unlock()
     }()
 
     for {
@@ -95,6 +99,9 @@ func (c *WSClient) readPump() {
 }
 
 func (s *Server) broadcast(message WSMessage) {
+    s.wsMu.Lock()
+    defer s.wsMu.Unlock()
+
     for client := range s.wsClients {
         select {
         case client.send <- message:
