@@ -5,6 +5,7 @@ import (
     "bytes"
     "context"
     "errors"
+    "fmt"
     "os/exec"
     "strings"
 
@@ -38,6 +39,13 @@ type NagiosPlugin struct{}
 
 func (p *NagiosPlugin) Name() string {
     return "nagios"
+}
+
+func (p *NagiosPlugin) ValidateOptions(options map[string]interface{}) error {
+    if optString(options, "program", "") == "" {
+        return fmt.Errorf("nagios/icinga check requires options.program (path to the plugin binary)")
+    }
+    return nil
 }
 
 func (p *NagiosPlugin) Execute(ctx context.Context, host *database.Host, check *database.Check) (*CheckResult, error) {

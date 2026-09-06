@@ -28,6 +28,15 @@ type Plugin interface {
     Execute(ctx context.Context, host *database.Host, check *database.Check) (*CheckResult, error)
 }
 
+// OptionsValidator is an optional interface a Plugin can implement to
+// sanity-check its own options.* before any check is ever scheduled, so
+// config mistakes (e.g. a nagios check missing options.program) surface at
+// load time - `raven -test` - instead of silently as UNKNOWN at run time.
+// Plugins whose options are all optional with sane defaults don't need it.
+type OptionsValidator interface {
+    ValidateOptions(options map[string]interface{}) error
+}
+
 type CheckResult struct {
     ExitCode   int
     Output     string
@@ -41,7 +50,6 @@ func NewEngine(cfg *config.Config, store database.Store, metricsCollector *metri
         config:  cfg,
         store:   store,
         metrics: metricsCollector,
-        plugins: make(map[string]Plugin),
         alertManager: NewSimpleAlertManager(store, cfg),
     }
 
@@ -193,26 +201,36 @@ func (e *Engine) syncConfig() error {
 }
 
 func (e *Engine) loadPlugins() error {
-    // Register built-in plugins
-    e.plugins["ping"] = &PingPlugin{}
-    e.plugins["tcp"] = &TCPPlugin{}
-    e.plugins["dns"] = &DNSPlugin{}
-    e.plugins["ssh"] = &SSHPlugin{}
+    e.plugins = newPluginRegistry()
+    logrus.WithField("plugins", len(e.plugins)).Info("Loaded plugins")
+    return nil
+}
+
+// newPluginRegistry builds the same type->Plugin map the engine schedules
+// checks against. Also used by ValidateConfig, which needs to know what
+// each check type accepts without constructing a full Engine (and its
+// database.Store) just to validate a config file.
+func newPluginRegistry() map[string]Plugin {
+    plugins := make(map[string]Plugin)
+
+    plugins["ping"] = &PingPlugin{}
+    plugins["tcp"] = &TCPPlugin{}
+    plugins["dns"] = &DNSPlugin{}
+    plugins["ssh"] = &SSHPlugin{}
 
     // "https" is the same plugin as "http"; HTTPPlugin defaults its scheme
     // from the check type when options.scheme/options.tls aren't set.
     http := &HTTPPlugin{}
-    e.plugins["http"] = http
-    e.plugins["https"] = http
+    plugins["http"] = http
+    plugins["https"] = http
 
     // Icinga speaks the same external-plugin API as Nagios (exit code
     // 0-3 + stdout text/perfdata), so one implementation serves both names.
     nagios := &NagiosPlugin{}
-    e.plugins["nagios"] = nagios
-    e.plugins["icinga"] = nagios
+    plugins["nagios"] = nagios
+    plugins["icinga"] = nagios
 
-    logrus.WithField("plugins", len(e.plugins)).Info("Loaded plugins")
-    return nil
+    return plugins
 }
 
 func (e *Engine) GetAlertManager() *SimpleAlertManager {

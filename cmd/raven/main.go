@@ -20,6 +20,7 @@ import (
 func main() {
     configFile := flag.String("config", "config.yaml", "Configuration file path")
     version := flag.Bool("version", false, "Show version information")
+    testConfig := flag.Bool("test", false, "Load and validate the configuration, then exit (0 = ok, 1 = error). Does not start the daemon or touch the database.")
     flag.Parse()
 
     if *version {
@@ -30,7 +31,22 @@ func main() {
     // Load configuration
     cfg, err := config.Load(*configFile)
     if err != nil {
+        if *testConfig {
+            fmt.Fprintf(os.Stderr, "Configuration error: %v\n", err)
+            os.Exit(1)
+        }
         logrus.Fatalf("Failed to load config: %v", err)
+    }
+
+    if *testConfig {
+        if errs := monitoring.ValidateConfig(cfg); len(errs) > 0 {
+            for _, e := range errs {
+                fmt.Fprintf(os.Stderr, "Configuration error: %v\n", e)
+            }
+            os.Exit(1)
+        }
+        fmt.Printf("Configuration OK: %d host(s), %d check(s)\n", len(cfg.Hosts), len(cfg.Checks))
+        os.Exit(0)
     }
 
     // Setup logging
@@ -71,12 +87,32 @@ func main() {
     // Start web server
     go webServer.Start(ctx)
 
-    // Wait for shutdown signal
+    // Wait for shutdown or reload signals. SIGHUP is on its own channel and
+    // handled in-process (RefreshConfigWithPurge) rather than left to its
+    // default disposition, which terminates the process - and since
+    // systemd treats SIGHUP as a "clean" signal, Restart=on-failure won't
+    // even bring it back up afterwards.
     sigChan := make(chan os.Signal, 1)
     signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-    
-    sig := <-sigChan
-    logrus.WithField("signal", sig).Info("Received shutdown signal")
+
+    hupChan := make(chan os.Signal, 1)
+    signal.Notify(hupChan, syscall.SIGHUP)
+
+waitLoop:
+    for {
+        select {
+        case sig := <-sigChan:
+            logrus.WithField("signal", sig).Info("Received shutdown signal")
+            break waitLoop
+        case <-hupChan:
+            logrus.Info("Received SIGHUP, reloading configuration")
+            if err := engine.RefreshConfigWithPurge(); err != nil {
+                logrus.WithError(err).Error("Configuration reload failed")
+            } else {
+                logrus.Info("Configuration reloaded")
+            }
+        }
+    }
 
     // Graceful shutdown: stop background loops first, then let the engine
     // and web server drain synchronously rather than exiting after a fixed

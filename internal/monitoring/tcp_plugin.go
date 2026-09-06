@@ -20,6 +20,13 @@ func (p *TCPPlugin) Name() string {
     return "tcp"
 }
 
+func (p *TCPPlugin) ValidateOptions(options map[string]interface{}) error {
+    if optInt(options, "port", 0) <= 0 {
+        return fmt.Errorf("tcp check requires options.port")
+    }
+    return nil
+}
+
 func (p *TCPPlugin) Execute(ctx context.Context, host *database.Host, check *database.Check) (*CheckResult, error) {
     target := targetAddress(host)
     if target == "" {
