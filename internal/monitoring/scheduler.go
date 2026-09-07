@@ -64,6 +64,26 @@ type StateInfo struct {
     Threshold        int       // How many consecutive failures needed to change state
 }
 
+// GetState returns a snapshot of the live per-check soft-fail tracking
+// state for a host:check pair, if one exists yet (it does once that pair
+// has been scheduled at least once - see initializeStateTracker and
+// processSchedule). This is the single source of truth for how close a
+// check is to confirming a state change; anything reconstructing that
+// from stored Status/StatusHistory records instead is derived and can
+// drift out of sync with it.
+func (s *Scheduler) GetState(hostID, checkID string) (StateInfo, bool) {
+    key := fmt.Sprintf("%s:%s", hostID, checkID)
+
+    s.stateTracker.mu.RLock()
+    defer s.stateTracker.mu.RUnlock()
+
+    info, ok := s.stateTracker.states[key]
+    if !ok {
+        return StateInfo{}, false
+    }
+    return *info, true
+}
+
 func NewScheduler(engine *Engine) *Scheduler {
     return &Scheduler{
         engine:       engine,

@@ -237,6 +237,13 @@ func (e *Engine) GetAlertManager() *SimpleAlertManager {
     return e.alertManager
 }
 
+// GetCheckState exposes the scheduler's live soft-fail tracking state for
+// a host:check pair, for display purposes (see internal/web). It's a
+// snapshot at call time, not a live reference.
+func (e *Engine) GetCheckState(hostID, checkID string) (StateInfo, bool) {
+    return e.scheduler.GetState(hostID, checkID)
+}
+
 // Add this method:
 func (e *Engine) RefreshConfigWithPurge() error {
     logrus.Info("Refreshing configuration with alert purging")

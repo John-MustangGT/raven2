@@ -709,76 +709,52 @@ func (s *Server) getCheckNamesForHost(ctx context.Context, hostID string) map[st
     return checkNames
 }
 
-// getSoftFailInfoWithNames retrieves soft failure information WITH check names
+// getSoftFailInfoWithNames reports checks on hostID that are currently
+// pending a soft-fail confirmation (i.e. a result has disagreed with the
+// reported state for fewer than Threshold consecutive polls). It reads
+// the scheduler's live tracking state directly rather than trying to
+// reconstruct it from stored Status records: the Status table only ever
+// holds one *current* record per host:check (see GetStatus/StatusBucket),
+// not a poll-by-poll history, and even a real history wouldn't help here
+// since a pending (not yet confirmed) result never gets written as the
+// record's ExitCode in the first place - only the confirmed state does.
 func (s *Server) getSoftFailInfoWithNames(ctx context.Context, hostID string) map[string]*SoftFailStatus {
     softFailInfo := make(map[string]*SoftFailStatus)
 
-    // Get recent statuses for this host to analyze failure patterns
-    statuses, err := s.store.GetStatus(ctx, database.StatusFilters{
-        HostID: hostID,
-        Limit:  100, // Get enough history to analyze patterns
-    })
-    
+    checks, err := s.store.GetChecks(ctx)
     if err != nil {
-        logrus.WithError(err).Error("Failed to get status for soft fail analysis")
+        logrus.WithError(err).Error("Failed to get checks for soft fail analysis")
         return softFailInfo
     }
 
-    // Group statuses by check_id and analyze failure patterns
-    checkStatuses := make(map[string][]*database.Status)
-    for i := range statuses {
-        checkID := statuses[i].CheckID
-        if checkStatuses[checkID] == nil {
-            checkStatuses[checkID] = make([]*database.Status, 0)
+    for _, check := range checks {
+        targetsHost := false
+        for _, hID := range check.Hosts {
+            if hID == hostID {
+                targetsHost = true
+                break
+            }
         }
-        checkStatuses[checkID] = append(checkStatuses[checkID], &statuses[i])
-    }
-
-    // Analyze each check's failure pattern
-    for checkID, statusList := range checkStatuses {
-        if len(statusList) == 0 {
+        if !targetsHost {
             continue
         }
 
-        // Look for consecutive failures at the start of the list (most recent)
-        consecutiveFails := 0
-        var firstFailTime, lastFailTime time.Time
-        
-        for _, status := range statusList {
-            if status.ExitCode != 0 { // Non-OK status
-                consecutiveFails++
-                lastFailTime = status.Timestamp
-                if firstFailTime.IsZero() {
-                    firstFailTime = status.Timestamp
-                }
-            } else {
-                break // Stop at first OK status
-            }
+        state, ok := s.engine.GetCheckState(hostID, check.ID)
+        if !ok || !state.SoftFailEnabled || state.PendingState == state.CurrentState {
+            continue // nothing pending confirmation right now
         }
 
-        // Only include if there are current failures
-        if consecutiveFails > 0 {
-            // Get the check details including name and threshold
-            check, err := s.store.GetCheck(ctx, checkID)
-            threshold := 3
-            checkName := checkID // fallback to ID if name not found
-            
-            if err == nil {
-                if check.Threshold > 0 {
-                    threshold = check.Threshold
-                }
-                if check.Name != "" {
-                    checkName = check.Name  // Use actual check name
-                }
-            }
+        checkName := check.ID
+        if check.Name != "" {
+            checkName = check.Name
+        }
 
-            softFailInfo[checkID] = &SoftFailStatus{
-                CheckName:     checkName,     // IMPORTANT: Include check name
-                CurrentFails:  consecutiveFails,
-                ThresholdMax:  threshold,
-                FirstFailTime: firstFailTime,
-                LastFailTime:  lastFailTime,
-            }
+        softFailInfo[check.ID] = &SoftFailStatus{
+            CheckName:     checkName,
+            CurrentFails:  state.ConsecutiveCount,
+            ThresholdMax:  state.Threshold,
+            FirstFailTime: state.LastStateChange,
+            LastFailTime:  state.LastCheckTime,
         }
     }
 
